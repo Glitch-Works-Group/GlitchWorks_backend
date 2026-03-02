@@ -1,4 +1,41 @@
+import argparse
+import json
+from pathlib import Path
+from typing import Dict, List
 
+from training import train_models
+
+ROOT = Path(__file__).resolve().parents[1]
+MODELS_DIR = ROOT / "training" / "models"
+DATA_DIR = ROOT / "training" / "data"
+MANIFEST_PATH = DATA_DIR / "datasets_manifest.json"
+
+
+def load_model_datasets(model: str) -> List[str]:
+    config_path = MODELS_DIR / model / "datasets.json"
+    if not config_path.exists():
+        return []
+    payload = json.loads(config_path.read_text())
+    return list(payload.get("kaggle_datasets", []))
+
+
+def load_all_datasets() -> List[str]:
+    datasets: List[str] = []
+    for model_dir in MODELS_DIR.iterdir():
+        if not model_dir.is_dir():
+            continue
+        datasets.extend(load_model_datasets(model_dir.name))
+    return sorted(set(datasets))
+
+
+def download_datasets(datasets: List[str]) -> Dict[str, str]:
+    try:
+        import kagglehub  # type: ignore
+    except Exception as exc:  # pragma: no cover - import guard
+        raise SystemExit(
+            "Missing kagglehub. Install it with: "
+            "python3 -m pip install kagglehub"
+        ) from exc
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     manifest: Dict[str, str] = {}
